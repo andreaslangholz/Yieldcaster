@@ -3,6 +3,8 @@ import pandas as pd
 import xarray as xr
 from src.utils import maximumZero, timeToDays
 
+print(10)
+
 datapath = sys.path[len(sys.path)-1] + "/data/"
 rawpath = datapath + "raw/"
 interrimpath = datapath + "interrim/"
