@@ -8,6 +8,8 @@ rawpath = datapath + "raw/"
 interrimpath = datapath + "interrim/"
 
 ## CPC TMAX ###
+
+print("Processing CPC")
 path_cpc = rawpath + "CPC Daily/tmax."
 
 thresholds = {"wheat": 30, "maize": 35, "rice": 35, "soy": 39}
@@ -31,8 +33,12 @@ for year in range(1980, 2017):
 
 df_tmax.to_csv(interrimpath + 'cpc_tmax.csv')
 
+del df_tmax, df_year_grouped, df_year
+
 ### SPEI
 # TODO: Check consistency (e.g. are there records with NaNs in certain months/years?)
+
+print("Processing SPEI")
 path_spei = rawpath + "SPEI/spei01.nc"
 
 df_spei = xr.open_dataset(path_spei).to_dataframe().reset_index()
@@ -43,9 +49,13 @@ df_spei['year'] = pd.DatetimeIndex(df_spei['time']).year
 df_spei = df_spei.dropna()
 df_spei = df_spei.sort_values(by=['lon', 'lat', 'year', 'month'])
 df_spei['spei_9mths'] = df_spei['spei'].rolling(9).sum()
+
 df_spei.to_csv(interrimpath + 'spei_processed.csv')
+del df_spei
 
 #### CRUTS ####
+
+print("Processing CRUTS")
 vars = ['cld', 'dtr', 'frs', 'pet', 'pre', 'tmn', 'tmx', 'vap', 'wet']
 coords = ['lon', 'lat', 'month', 'year']
 
@@ -60,7 +70,6 @@ df_cruts_out['month'] = pd.DatetimeIndex(df_cruts_out['time']).month
 df_cruts_out['year'] = pd.DatetimeIndex(df_cruts_out['time']).year
 mainout = coords + ['tmp']
 df_cruts_out = df_cruts_out[mainout]
-df_cruts_out
 
 for var in vars:
     print(var)
@@ -70,25 +79,30 @@ for var in vars:
     df_var = df_var[df_var["time"] < '2017-01-16']
     df_var['month'] = pd.DatetimeIndex(df_var['time']).month
     df_var['year'] = pd.DatetimeIndex(df_var['time']).year
-    df_out = coords + [var]
-    df_var = df_var[df_out]
+    var_out = coords + [var]
+    df_var = df_var[var_out]
     path_var_save = interrimpath + 'cruts_var/' + 'cruts_' + var + '.csv'
     df_var.to_csv(path_var_save)
     df_cruts_out = df_cruts_out.merge(df_var, how='inner', on=coords)
+print("test")
 
-df_cruts_out['wet'] = df_cruts_out['wet'].apply(timeToDays)
-df_cruts_out['frs'] = df_cruts_out['frs'].apply(timeToDays)
+df_cruts_out['wet'] = df_cruts_out['wet'].dt.days
+df_cruts_out['frs'] = df_cruts_out['frs'].dt.days
 
 df_cruts_out.to_csv(interrimpath + 'cruts_processed.csv')
-df_cruts_out
 
-####  YIELD ####
+del df_cruts_out, df_var
+df_cruts_out.describe()
+
+####  GDHY ####
+
+print("Processing GDHY")
 path_yield = rawpath + 'gdhy_v1.3/'
 crops = ['maize', 'soybean', 'wheat', 'rice']
 
 for crop in crops:
     path = path_yield + crop + '/'
-    print('Path: ' + path)
+    print(crop)
     df_yield_out = xr.open_dataset(path + 'yield_' + '1982' + '.nc4')
     df_yield_out = df_yield_out.to_dataframe().reset_index()
     df_yield_out = df_yield_out.rename(columns={"var": "yield"})
@@ -101,5 +115,7 @@ for crop in crops:
         df_yield_year['year'] = str(year)
         df_yield_out = pd.concat([df_yield_out, df_yield_year], sort=False)
     df_yield_out.to_csv(interrimpath + crop + '_yield.csv')
+
+del df_yield_out, df_yield_year
 
 # TODO: Make pixel IDs

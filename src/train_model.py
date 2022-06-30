@@ -1,8 +1,5 @@
-import matplotlib.pyplot as plt
-import matplotlib
 import sys
 import pandas as pd
-import numpy as np
 from tqdm import tqdm
 from sklearn.linear_model import LinearRegression
 import torch
@@ -12,7 +9,8 @@ import torch.nn as nn
 from torch.optim import Adam
 from sklearn.metrics import mean_squared_error
 from math import sqrt
-from src.utils import makeDataset, rmse, neuralNet
+from src.utils import makeDataset, rmse
+from src.models import neuralNet, train_epoch
 
 datapath = "C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Data\\Processed\\"
 df_comb_90 = pd.read_csv(
@@ -41,27 +39,16 @@ y_test = df_comb_10['yield']
 
 y_hat_linreg = pd.DataFrame(linr.predict(x_test))
 
-
 # Hyperparameters
 target = 'yield'
-batch_size = round(len(df_comb_90) / 100)  # powers of 2
+batch_size = 1024
 EPOCHS = 30
 learning_rate = 0.001
 criterion = nn.MSELoss()
 optm = Adam(model.parameters(), lr=learning_rate)
-
-
+K = 10
 
 # PYTORCH
-# Training function
-def train(model, x, y, optimizer, criterion):
-    model.zero_grad()
-    output = model(x)
-    loss = criterion(output, y)
-    loss.backward()
-    optimizer.step()
-    return loss, output
-
 
 # Set up CUDA
 if torch.cuda.is_available():
@@ -86,17 +73,11 @@ model_loss = pd.DataFrame({
     "Test set RMSE": []
 })
 
-model = NN(df_comb_90.shape[1] - 1).to(device)
+model = neuralNet(df_comb_90.shape[1] - 1).to(device)
 
 for epoch in range(EPOCHS):
 
-    epoch_loss = 0
-    for batch in tqdm(dataload_train):
-        x_train, y_train = batch['inp'], batch['oup']
-        x_train = x_train.to(device)
-        y_train = y_train.to(device)
-        loss, predictions = train(model, x_train, y_train, optm, criterion)
-        epoch_loss += loss
+    epoch_loss = train_epoch(dataload_train, model, optm, criterion, device)
 
     y_hat_nn = pd.DataFrame(model(x_nn_test).cpu().detach())
     rmse_test = rmse(y_test, y_hat_nn)

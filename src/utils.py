@@ -1,27 +1,43 @@
 import torch
 import pandas as pd
 import torch.nn as nn
+from numpy import sqrt
+from sklearn.metrics import mean_squared_error
 from torch.utils.data import Dataset
 import torch.nn.functional as functional
 import re
 
+
+class Boston_Dataset(Dataset):
+
+    def __init__(self, df):
+        self.df = df
+
+    def __getitem__(self, idx):
+        self.data = torch.from_numpy(self.df.drop(['target'], axis=1).values)
+        self.targets = torch.from_numpy(self.df['target'].values)
+        return self.data[idx], self.targets[idx].item()
+
+    def __len__(self):
+        return len(self.targets)
+
 class makeDataset(Dataset):
-    def __init__(self, csvpath, target, mode='train'):
+    def __init__(self, df, target, mode='train'):
         self.mode = mode
-        df = pd.read_csv(csvpath, index_col=0)
+        self.df = df
 
         if self.mode == 'train':
-            df = df.dropna()
-            self.oup = df.pop(target).values.reshape(len(df), 1)
-            self.inp = df.values
+            self.df = self.df.dropna()
+            self.oup = self.df.pop(target).values.reshape(len(df), 1)
+            self.inp = self.df.values
         else:
-            self.inp = df.values
+            self.inp = self.df.values
 
     def __len__(self):
         return len(self.inp)
 
     def __getitem__(self, idx):
-        if self.mode == 'test':
+        if self.mode == 'train':
             inpt = torch.Tensor(self.inp[idx])
             oupt = torch.Tensor(self.oup[idx])
             return {'inp': inpt,
@@ -31,18 +47,6 @@ class makeDataset(Dataset):
             inpt = torch.Tensor(self.inp[idx])
             return {'inp': inpt
                     }
-
-# Model class
-class neuralNet(nn.Module):
-    def __init__(self, num_feat):
-        super().__init__()
-        self.hidden_layer = nn.Linear(num_feat, 10)
-        self.output_layer = nn.Linear(10, 1)
-
-    def forward(self, x):
-        x = functional.relu(self.hidden_layer(x))
-        x = self.output_layer(x)
-        return x
 
 def rmse(actual, pred):
     return sqrt(mean_squared_error(actual, pred))
@@ -54,7 +58,10 @@ def maximumZero(x):
         return 0
 
 def timeToDays(timestr):
-    days_span = re.search("days", timestr)
-    days_str = timestr[:days_span.span()[0] - 1]
-    hour_str = timestr[days_span.span()[1] + 1:days_span.span()[1] + 3]
-    return int(days_str) if hour_str == '' else int(days_str) + round(int(hour_str) / 24)
+    if type(timestr) == str:
+        days_span = re.search("days", timestr)
+        days_str = timestr[:days_span.span()[0] - 1]
+        hour_str = timestr[days_span.span()[1] + 1:days_span.span()[1] + 3]
+        return int(days_str) if hour_str == '' else int(days_str) + round(int(hour_str) / 24)
+    else:
+        return int(timestr)
