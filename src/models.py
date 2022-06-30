@@ -3,11 +3,9 @@ from sklearn.model_selection import KFold
 from tqdm import tqdm
 
 
-## Helper functions
+## Helper functions ##
 
 ## Epoch train
-
-
 def train_epoch(dataload_train, model, optimizer, criterion, device):
     epoch_loss = 0
     for batch in tqdm(dataload_train):
@@ -29,8 +27,8 @@ def train(model, x, y, optimizer, criterion):
     return loss, output
 
 
-def kfold_cv(dataload_train, model, optimizer, criterion, device, K=5):
-    splits = KFold(n_splits=k, shuffle=True, random_state=42)
+def kfold_cv(dataload_train, model, optimizer, criterion, device, epochs, K=5):
+    splits = KFold(n_splits = K, shuffle=True, random_state=42)
     foldperf = {}
     for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(dataset)))):
 

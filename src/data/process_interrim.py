@@ -1,30 +1,45 @@
+import pandas as pd
+from src.utils import maximumZero
+
 ## combining sets
 datapath = sys.path[len(sys.path) - 1] + "/data/"
 interrimpath = datapath + "interrim/"
 
-harvest_month = 5
 crops = ["wheat", "maize", "rice", "soy"]
 
 crops = ['maize', 'soybean', 'wheat', 'rice']
-df_cruts = pd.read_csv(datapath + "cruts_processed.csv")
-df_spei = pd.read_csv(datapath + "spei_processed.csv")
-df_heat = pd.read_csv(datapath + "cpc_tmax.csv")
-df_cruts.describe()
+df_cruts = pd.read_csv(interrimpath + "cruts_processed.csv", index_col=0)
+df_spei = pd.read_csv(interrimpath + "spei_processed.csv", index_col=0)
+df_heat = pd.read_csv(interrimpath + "cpc_tmax_processed.csv",  index_col=0)
 
 # Calculate extreme heat features
 df_heat = df_heat.dropna()
 df_heat = df_heat.sort_values(by=['lon', 'lat', 'year', 'month'])
 
-for crop in crops:
-    df_heat[crop + 'ext_heat_6mth'] = df_tmax_out[crop + 'max'].rolling(6).sum()
+df_heat.drop('tmax', axis=1, inplace=True)
 
-# Change CRUTS from vertical to horisontal set wiht yearly index
-df1 = (df.set_index(['lon', 'lat', 'year',
-                     df.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
+for crop in crops:
+    df_heat[crop + '_extheat_6mth_'] = df_heat[crop + 'max'].rolling(6).sum().apply(maximumZero)
+    df_heat.drop(crop + 'max', axis=1, inplace=True)
+
+# Change to horisontal structure
+df_heat.drop('month', axis=1, inplace=True)
+df_heat = (df_heat.set_index(['lon', 'lat', 'year',
+                     df_heat.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
        .unstack()
        .sort_index(axis=1, level=1))
-df1.columns = [f'{a}{b}' for a, b in df1.columns]
-df1 = df1.reset_index()
+df_heat.columns = [f'{a}{b}' for a, b in df_heat.columns]
+df_heat = df_heat.reset_index()
+
+# Change CRUTS from vertical to horisontal set with yearly index
+df_cruts = df_cruts.sort_values(by=['lon', 'lat', 'year', 'month'])
+df_cruts.drop('month', axis=1, inplace=True)
+df_cruts = (df_cruts.set_index(['lon', 'lat', 'year',
+                     df_cruts.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
+       .unstack()
+       .sort_index(axis=1, level=1))
+df_cruts.columns = [f'{a}{b}' for a, b in df_cruts.columns]
+df_cruts = df_cruts.reset_index()
 
 ## Make datasets for each crop
 for crop in crops:
@@ -37,7 +52,6 @@ for crop in crops:
     df_comb = pd.read_csv(datapath + crop + "_combined.csv")
     df_comb = df_comb.merge(df_spei, on=['lon', 'lat', 'year'], how='inner')
     df_comb = df_comb.merge(df_heat, on=['lon', 'lat', 'year'], how='inner')
-
     df_comb = df_cruts.merge(df_comb, on=['lon', 'lat', 'year'], how='left').dropna()
 
     #   df_comb = df_comb[['yield', 'lon', 'lat', 'year', 'SPEI', 'extHeat', 'tmp', 'cld', 'dtr',

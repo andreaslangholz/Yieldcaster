@@ -8,10 +8,9 @@ rawpath = datapath + "raw/"
 interrimpath = datapath + "interrim/"
 
 ## CPC TMAX ###
-
 print("Processing CPC")
-path_cpc = rawpath + "CPC Daily/tmax."
 
+path_cpc = rawpath + "CPC Daily/tmax."
 thresholds = {"wheat": 30, "maize": 35, "rice": 35, "soy": 39}
 
 df_tmax = pd.DataFrame(columns=['lat', 'lon', 'month', 'year', 'tmax'])
@@ -31,7 +30,7 @@ for year in range(1980, 2017):
         .sum().reset_index()
     df_tmax = pd.concat([df_tmax, df_year_grouped], sort=False)
 
-df_tmax.to_csv(interrimpath + 'cpc_tmax.csv')
+df_tmax.to_csv(interrimpath + 'cpc_tmax_processed.csv')
 
 del df_tmax, df_year_grouped, df_year
 
@@ -51,11 +50,12 @@ df_spei = df_spei.sort_values(by=['lon', 'lat', 'year', 'month'])
 df_spei['spei_9mths'] = df_spei['spei'].rolling(9).sum()
 
 df_spei.to_csv(interrimpath + 'spei_processed.csv')
+
 del df_spei
 
 #### CRUTS ####
-
 print("Processing CRUTS")
+
 vars = ['cld', 'dtr', 'frs', 'pet', 'pre', 'tmn', 'tmx', 'vap', 'wet']
 coords = ['lon', 'lat', 'month', 'year']
 
@@ -92,10 +92,30 @@ df_cruts_out['frs'] = df_cruts_out['frs'].dt.days
 df_cruts_out.to_csv(interrimpath + 'cruts_processed.csv')
 
 del df_cruts_out, df_var
-df_cruts_out.describe()
 
-####  GDHY ####
+#### Combine variables and flatten the structure ####
+df_heat = pd.read_csv(interrimpath + 'cpc_tmax_processed.csv', index_col=0)
+df_spei = pd.read_csv(interrimpath + 'spei_processed.csv', index_col=0)
+df_cruts = pd.read_csv(interrimpath + 'cruts_processed.csv', index_col=0)
 
+df_var = pd.merge(df_cruts, df_spei, on = ['lat', 'lon', 'month', 'year'], how = "outer")
+df_var = pd.merge(df_var, df_heat, on = ['lat', 'lon', 'month', 'year'], how = "outer")
+
+df_var.drop('month', axis=1, inplace=True)
+df_var.to_csv(interrimpath + 'allvars_vertical_processed.csv')
+
+df_var_horizontal = df_var.sort_values(by=['lon', 'lat', 'year', 'month'])
+df_var_horizontal = (df_var_horizontal.set_index(['lon', 'lat', 'year',
+                     df_var_horizontal.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
+       .unstack()
+       .sort_index(axis=1, level=1))
+df_var_horizontal.columns = [f'{a}{b}' for a, b in df_var_horizontal.columns]
+df_var_horizontal = df_var_horizontal.reset_index()
+
+df_var.columns
+df_var_horizontal.to_csv(interrimpath + 'allvars_horizontal_processed.csv')
+
+#### GDHY ####
 print("Processing GDHY")
 path_yield = rawpath + 'gdhy_v1.3/'
 crops = ['maize', 'soybean', 'wheat', 'rice']
@@ -119,3 +139,5 @@ for crop in crops:
 del df_yield_out, df_yield_year
 
 # TODO: Make pixel IDs
+
+
