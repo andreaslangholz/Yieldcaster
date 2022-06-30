@@ -2,39 +2,53 @@
 datapath = sys.path[len(sys.path)-1] + "/data/"
 interrimpath = datapath + "interrim/"
 
-df_wheat = pd.read_csv(datapath + "wheat_combined.csv")
+harvest_month = 5
+crops = ["wheat", "maize", "rice", "soy"]
+
+crops = ['maize', 'soybean', 'wheat', 'rice']
 df_cruts = pd.read_csv(datapath + "cruts_processed.csv")
 df_spei = pd.read_csv(datapath + "spei_processed.csv")
 df_heat = pd.read_csv(datapath + "cpc_tmax.csv")
+df_cruts.describe()
 
 # Calculate extreme heat features
-
 df_heat = df_heat.dropna()
+df_heat = df_heat.sort_values(by=['lon', 'lat', 'year', 'month'])
 
-df_tmax_out = df_tmax_out.sort_values(by=['lon', 'lat', 'year', 'month'])
+for crop in crops:
+    df_heat[crop + 'ext_heat_6mth'] = df_tmax_out[crop + 'max'].rolling(6).sum()
 
-for crop in ["wheat", "maize", "rice", "soy"]:
-    df_tmax_out[crop + '6mthRollMax'] = df_tmax_out[crop + 'max'].rolling(6).sum()
+# Change CRUTS from vertical to horisontal set wiht yearly index
+df1 = (df.set_index(['lon','lat', 'year',
+                    df.groupby(['lon','lat', 'year']).cumcount().add(1)])
+        .unstack()
+        .sort_index(axis=1, level=1))
+df1.columns = [f'{a}{b}' for a, b in df1.columns]
+df1 = df1.reset_index()
 
 
-# Use rolling sum of events only for may
-df_heat = df_heat[['lon', 'lat', 'wheat6mthRollMax', 'month', 'year']]
-df_heat = df_heat[df_heat['month'] == 5]
-df_spei = df_spei[df_spei['month'] == 5]
+## Make datasets for each crop
+for crop in crops:
 
-df_comb = df_wheat.merge(df_spei, on=['lon', 'lat', 'year'], how='inner')
-df_comb = df_comb.merge(df_heat, on=['lon', 'lat', 'year'], how='inner')
-df_comb = df_cruts.merge(df_comb, on=['lon', 'lat', 'year'], how='left').dropna()
+    # Use rolling sum of events only for may
+    df_heat = df_heat[['lon', 'lat', crop + 'ext_heat_6mth', 'month', 'year']]
+    df_heat = df_heat[df_heat['month'] == harvest_month]
+    df_spei = df_spei[df_spei['month'] == harvest_month]
 
-df_comb.rename(columns={'rolling': 'SPEI', 'wheat6mthRollMax': 'extHeat'}, inplace=True)
-df_comb = df_comb[['yield', 'lon', 'lat', 'year', 'SPEI', 'extHeat', 'tmp', 'cld', 'dtr',
-                   'frs', 'pet', 'pre', 'tmn', 'tmx', 'vap', 'wet']]
+    # Combine crop, heat and SPEI datasets per year
+    df_comb = pd.read_csv(datapath + crop + "_combined.csv")
+    df_comb = df_comb.merge(df_spei, on=['lon', 'lat', 'year'], how='inner')
+    df_comb = df_comb.merge(df_heat, on=['lon', 'lat', 'year'], how='inner')
 
-df_comb['wet'] = df_comb['wet'].apply(timeToDays)
-df_comb['frs'] = df_comb['frs'].apply(timeToDays)
 
-df_comb.to_csv(datapath + "historical_combined.csv")
-df_comb = pd.read_csv(datapath + "historical_combined.csv",  index_col=0)
+    df_comb = df_cruts.merge(df_comb, on=['lon', 'lat', 'year'], how='left').dropna()
+
+    #   df_comb = df_comb[['yield', 'lon', 'lat', 'year', 'SPEI', 'extHeat', 'tmp', 'cld', 'dtr',
+    #                  'frs', 'pet', 'pre', 'tmn', 'tmx', 'vap', 'wet']]
+
+
+    df_comb.to_csv(datapath + "historical_combined.csv")
+    df_comb = pd.read_csv(datapath + "historical_combined.csv",  index_col=0)
 
 
 # Set up training and test set with random samples
