@@ -21,6 +21,7 @@ class Boston_Dataset(Dataset):
     def __len__(self):
         return len(self.targets)
 
+
 class makeDataset(Dataset):
     def __init__(self, df, target, mode='train'):
         self.mode = mode
@@ -48,8 +49,10 @@ class makeDataset(Dataset):
             return {'inp': inpt
                     }
 
+
 def rmse(actual, pred):
     return sqrt(mean_squared_error(actual, pred))
+
 
 def maximumZero(x):
     if x > 0:
@@ -57,11 +60,15 @@ def maximumZero(x):
     else:
         return 0
 
-def timeToDays(timestr):
-    if type(timestr) == str:
-        days_span = re.search("days", timestr)
-        days_str = timestr[:days_span.span()[0] - 1]
-        hour_str = timestr[days_span.span()[1] + 1:days_span.span()[1] + 3]
-        return int(days_str) if hour_str == '' else int(days_str) + round(int(hour_str) / 24)
-    else:
-        return int(timestr)
+def df_mth_to_year(df):
+    df_var_horizontal = df.sort_values(by=['lon', 'lat', 'year', 'month'])
+    df_var_horizontal.drop('month', axis=1, inplace=True)
+    df_var_horizontal.drop('time', axis=1, inplace=True)
+    df_var_horizontal = (df_var_horizontal.set_index(['lon', 'lat', 'year',
+                                                      df_var_horizontal.groupby(['lon', 'lat', 'year']).cumcount().add(
+                                                          1)])
+                         .unstack()
+                         .sort_index(axis=1, level=1))
+    df_var_horizontal.columns = [f'{a}{b}' for a, b in df_var_horizontal.columns]
+    df_var_horizontal = df_var_horizontal.reset_index()
+    return df_var_horizontal

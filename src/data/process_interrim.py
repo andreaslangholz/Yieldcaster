@@ -4,42 +4,14 @@ from src.utils import maximumZero
 ## combining sets
 datapath = sys.path[len(sys.path) - 1] + "/data/"
 interrimpath = datapath + "interrim/"
+processedpath = datapath + "processed/"
 
 crops = ["wheat", "maize", "rice", "soy"]
 
-crops = ['maize', 'soybean', 'wheat', 'rice']
-df_cruts = pd.read_csv(interrimpath + "cruts_processed.csv", index_col=0)
-df_spei = pd.read_csv(interrimpath + "spei_processed.csv", index_col=0)
-df_heat = pd.read_csv(interrimpath + "cpc_tmax_processed.csv",  index_col=0)
+df_var_common_mth = pd.read_csv(interrimpath + "df_var_common_mth.csv", index_col=0)
 
-# Calculate extreme heat features
-df_heat = df_heat.dropna()
-df_heat = df_heat.sort_values(by=['lon', 'lat', 'year', 'month'])
 
-df_heat.drop('tmax', axis=1, inplace=True)
 
-for crop in crops:
-    df_heat[crop + '_extheat_6mth_'] = df_heat[crop + 'max'].rolling(6).sum().apply(maximumZero)
-    df_heat.drop(crop + 'max', axis=1, inplace=True)
-
-# Change to horisontal structure
-df_heat.drop('month', axis=1, inplace=True)
-df_heat = (df_heat.set_index(['lon', 'lat', 'year',
-                     df_heat.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
-       .unstack()
-       .sort_index(axis=1, level=1))
-df_heat.columns = [f'{a}{b}' for a, b in df_heat.columns]
-df_heat = df_heat.reset_index()
-
-# Change CRUTS from vertical to horisontal set with yearly index
-df_cruts = df_cruts.sort_values(by=['lon', 'lat', 'year', 'month'])
-df_cruts.drop('month', axis=1, inplace=True)
-df_cruts = (df_cruts.set_index(['lon', 'lat', 'year',
-                     df_cruts.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
-       .unstack()
-       .sort_index(axis=1, level=1))
-df_cruts.columns = [f'{a}{b}' for a, b in df_cruts.columns]
-df_cruts = df_cruts.reset_index()
 
 ## Make datasets for each crop
 for crop in crops:

@@ -1,7 +1,7 @@
 import sys
 import pandas as pd
 import xarray as xr
-from src.utils import maximumZero, timeToDays
+from src.utils import maximumZero
 
 datapath = sys.path[len(sys.path) - 1] + "/data/"
 rawpath = datapath + "raw/"
@@ -13,9 +13,7 @@ print("Processing CPC")
 path_cpc = rawpath + "CPC Daily/tmax."
 thresholds = {"wheat": 30, "maize": 35, "rice": 35, "soy": 39}
 
-df_tmax = pd.DataFrame(columns=['lat', 'lon', 'month', 'year', 'tmax'])
-for crop in ["wheat", "maize", "rice", "soy"]:
-    df_tmax[crop + 'max'] = {}
+df_tmax = pd.DataFrame(columns=['lat', 'lon', 'time', 'month', 'year', 'tmax'])
 
 for year in range(1980, 2017):
     print(year)
@@ -23,16 +21,18 @@ for year in range(1980, 2017):
     df_year['month'] = pd.DatetimeIndex(df_year['time']).month
     df_year['year'] = pd.DatetimeIndex(df_year['time']).year
     df_year = df_year.dropna()
-    for crop in ["wheat", "maize", "rice", "soy"]:
-        df_year[crop + 'max'] = (df_year['tmax'] - thresholds[crop]).transform(maximumZero)
+    df_tmax = pd.concat([df_tmax, df_year], sort=False)
 
-    df_year_grouped = df_year.groupby(["lat", "lon", "month", "year"])["wheatmax", "maizemax", "ricemax", "soymax"] \
+for crop in ["wheat", "maize", "rice", "soy"]:
+    df_mths_crop = df_tmax.copy()
+    max_ = crop + 'max'
+    df_mths_crop[max_] = (df_mths_crop['tmax'] - thresholds[crop]).transform(maximumZero)
+    df_mths_crop = df_mths_crop.groupby(["lat", "lon", "month", "year"])[max_] \
         .sum().reset_index()
-    df_tmax = pd.concat([df_tmax, df_year_grouped], sort=False)
+    df_mths_crop.to_csv(interrimpath + 'df_heat_' + crop + '.csv')
+    del df_mths_crop
 
-df_tmax.to_csv(interrimpath + 'cpc_tmax_processed.csv')
-
-del df_tmax, df_year_grouped, df_year
+del df_tmax, df_year
 
 ### SPEI
 # TODO: Check consistency (e.g. are there records with NaNs in certain months/years?)
@@ -49,7 +49,7 @@ df_spei = df_spei.dropna()
 df_spei = df_spei.sort_values(by=['lon', 'lat', 'year', 'month'])
 df_spei['spei_9mths'] = df_spei['spei'].rolling(9).sum()
 
-df_spei.to_csv(interrimpath + 'spei_processed.csv')
+df_spei.to_csv(interrimpath + 'df_spei_mth.csv')
 
 del df_spei
 
@@ -71,6 +71,8 @@ df_cruts_out['year'] = pd.DatetimeIndex(df_cruts_out['time']).year
 mainout = coords + ['tmp']
 df_cruts_out = df_cruts_out[mainout]
 
+df_cruts_out.set_index(['lat', 'lon', 'month', 'year'], inplace=True)
+
 for var in vars:
     print(var)
     path_var = path_cruts + 'cru_ts4.06.1901.2021.' + var + '.dat.nc\\cru_ts4.06.1901.2021.' + var + '.dat.nc'
@@ -83,37 +85,28 @@ for var in vars:
     df_var = df_var[var_out]
     path_var_save = interrimpath + 'cruts_var/' + 'cruts_' + var + '.csv'
     df_var.to_csv(path_var_save)
-    df_cruts_out = df_cruts_out.merge(df_var, how='inner', on=coords)
-print("test")
+    df_var.set_index(['lat', 'lon', 'month', 'year'], inplace=True)
+    df_cruts_out = df_cruts_out.join(df_var, how='outer', on=coords)
 
 df_cruts_out['wet'] = df_cruts_out['wet'].dt.days
 df_cruts_out['frs'] = df_cruts_out['frs'].dt.days
 
-df_cruts_out.to_csv(interrimpath + 'cruts_processed.csv')
+df_cruts_out.to_csv(interrimpath + 'df_cruts_mth.csv')
 
 del df_cruts_out, df_var
 
 #### Combine variables and flatten the structure ####
-df_heat = pd.read_csv(interrimpath + 'cpc_tmax_processed.csv', index_col=0)
 df_spei = pd.read_csv(interrimpath + 'spei_processed.csv', index_col=0)
 df_cruts = pd.read_csv(interrimpath + 'cruts_processed.csv', index_col=0)
 
-df_var = pd.merge(df_cruts, df_spei, on = ['lat', 'lon', 'month', 'year'], how = "outer")
-df_var = pd.merge(df_var, df_heat, on = ['lat', 'lon', 'month', 'year'], how = "outer")
+df_spei.set_index(['lat', 'lon', 'month', 'year'], inplace=True)
+df_cruts.set_index(['lat', 'lon', 'month', 'year'], inplace=True)
 
-df_var.drop('month', axis=1, inplace=True)
-df_var.to_csv(interrimpath + 'allvars_vertical_processed.csv')
+df_var = df_spei.join(df_cruts, how='outer')
+df_var.reset_index()
 
-df_var_horizontal = df_var.sort_values(by=['lon', 'lat', 'year', 'month'])
-df_var_horizontal = (df_var_horizontal.set_index(['lon', 'lat', 'year',
-                     df_var_horizontal.groupby(['lon', 'lat', 'year']).cumcount().add(1)])
-       .unstack()
-       .sort_index(axis=1, level=1))
-df_var_horizontal.columns = [f'{a}{b}' for a, b in df_var_horizontal.columns]
-df_var_horizontal = df_var_horizontal.reset_index()
-
-df_var.columns
-df_var_horizontal.to_csv(interrimpath + 'allvars_horizontal_processed.csv')
+df_var.to_csv(interrimpath + 'df_var_common_mth.csv')
+del df_var
 
 #### GDHY ####
 print("Processing GDHY")
@@ -121,8 +114,8 @@ path_yield = rawpath + 'gdhy_v1.3/'
 crops = ['maize', 'soybean', 'wheat', 'rice']
 
 for crop in crops:
-    path = path_yield + crop + '/'
     print(crop)
+    path = path_yield + crop + '/'
     df_yield_out = xr.open_dataset(path + 'yield_' + '1982' + '.nc4')
     df_yield_out = df_yield_out.to_dataframe().reset_index()
     df_yield_out = df_yield_out.rename(columns={"var": "yield"})
@@ -134,10 +127,6 @@ for crop in crops:
         df_yield_year = df_yield_year.rename(columns={"var": "yield"})
         df_yield_year['year'] = str(year)
         df_yield_out = pd.concat([df_yield_out, df_yield_year], sort=False)
-    df_yield_out.to_csv(interrimpath + crop + '_yield.csv')
+    df_yield_out.to_csv(interrimpath + 'df_' + crop + '_yield.csv')
 
 del df_yield_out, df_yield_year
-
-# TODO: Make pixel IDs
-
-
