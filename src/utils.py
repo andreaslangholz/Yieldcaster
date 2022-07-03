@@ -6,21 +6,8 @@ from sklearn.metrics import mean_squared_error
 from torch.utils.data import Dataset
 import torch.nn.functional as functional
 import re
-
-
-class Boston_Dataset(Dataset):
-
-    def __init__(self, df):
-        self.df = df
-
-    def __getitem__(self, idx):
-        self.data = torch.from_numpy(self.df.drop(['target'], axis=1).values)
-        self.targets = torch.from_numpy(self.df['target'].values)
-        return self.data[idx], self.targets[idx].item()
-
-    def __len__(self):
-        return len(self.targets)
-
+print(__package__)
+print(__name__)
 
 class makeDataset(Dataset):
     def __init__(self, df, target, mode='train'):

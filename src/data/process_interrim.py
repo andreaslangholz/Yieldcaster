@@ -10,9 +10,6 @@ crops = ["wheat", "maize", "rice", "soy"]
 
 df_var_common_mth = pd.read_csv(interrimpath + "df_var_common_mth.csv", index_col=0)
 
-
-
-
 ## Make datasets for each crop
 for crop in crops:
     # Use rolling sum of events only for may
