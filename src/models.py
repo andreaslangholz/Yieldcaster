@@ -1,7 +1,22 @@
 import numpy as np
 from sklearn.model_selection import KFold
+from torch.nn import functional
 from tqdm import tqdm
+import torch.nn as nn
+import warnings
+warnings.filterwarnings("ignore")
 
+# Model class
+class neuralNet(nn.Module):
+    def __init__(self, num_feat):
+        super().__init__()
+        self.hidden_layer = nn.Linear(num_feat, 10)
+        self.output_layer = nn.Linear(10, 1)
+
+    def forward(self, x):
+        x = functional.relu(self.hidden_layer(x))
+        x = self.output_layer(x)
+        return x
 
 ## Helper functions ##
 
@@ -15,7 +30,6 @@ def train_epoch(dataload_train, model, optimizer, criterion, device):
         loss, predictions = train(model, x_train, y_train, optimizer, criterion)
         epoch_loss += loss
     return epoch_loss
-
 
 # Training function
 def train(model, x, y, optimizer, criterion):
@@ -86,15 +100,3 @@ def kfold_cv(dataload_train, model, optimizer, criterion, device, epochs, K=5):
             np.mean(tl_f), np.mean(testl_f), np.mean(ta_f), np.mean(testa_f)))
 
     return foldperf
-
-# Model class
-class neuralNet(nn.Module):
-    def __init__(self, num_feat):
-        super().__init__()
-        self.hidden_layer = nn.Linear(num_feat, 10)
-        self.output_layer = nn.Linear(10, 1)
-
-    def forward(self, x):
-        x = functional.relu(self.hidden_layer(x))
-        x = self.output_layer(x)
-        return x

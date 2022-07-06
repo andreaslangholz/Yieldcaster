@@ -1,61 +1,37 @@
-import sys
 import pandas as pd
-from tqdm import tqdm
 from sklearn.linear_model import LinearRegression
 import torch
 from torch.utils.data import DataLoader
-from torch.utils.data import Dataset
 import torch.nn as nn
-from torch.optim import Adam
-from sklearn.metrics import mean_squared_error
+from torch.optim import Adam, SGD
 from math import sqrt
-from src.utils import makeDataset, rmse
+from src.utils import makeDataset, rmse, get_data
 from src.models import neuralNet, train_epoch
+import warnings
+warnings.filterwarnings("ignore")
 
-datapath = "C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Data\\Processed\\"
+df_train, df_test = get_data('wheat')
+target = 'yield'
 
-def get_dat(crop, type = 'mix'):
-    datapath = "C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Data\\Processed\\"
-    croppath = datapath + crop +'\\'
-    if type == 'mix':
-        df_train = pd.read_csv(croppath + 'df_' + crop +'_historical_mix_')
-        df_test = pd.read_csv()
-    
+#TODO: (1) FIX MISSING FRS NANS! (2) fix autoload of index
+try:
+    for i in range(1,13):
+        df_train = df_train.loc[:, df_train.columns != ('frs' + str(i))]
+        df_test  = df_test.loc[:, df_test.columns != ('frs' + str(i))]
+except:
+    print('no frs')
 
-df_comb_90 = pd.read_csv(
-    datapath + "historical_combined_train90.csv", index_col=0)
-df_comb_10 = pd.read_csv(
-    datapath + "historical_combined_test10.csv", index_col=0)
-
-sys.path
-
-pd.read_csv("C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Yieldcaster\\data\\raw\\Berkeley Earth\\Complete_TMAX_Daily_LatLong1_1980.nc")
-
-# Linear model
-x_train = df_comb_90[['lon', 'lat', 'year', 'SPEI', 'extHeat', 'tmp', 'cld', 'dtr',
-                      'frs', 'pet', 'pre', 'tmn', 'tmx', 'vap', 'wet']]
-
-y_train = df_comb_90['yield']
+# Split for rmse values
+x_train = df_train.loc[:, df_train.columns != target]
+y_train = df_train[target]
+x_test = df_test.loc[:, df_test.columns != target]
+y_test = df_test[target]
 
 # Train linear model
 linr = LinearRegression()
 linr.fit(x_train, y_train)
 
-x_test = df_comb_10[['lon', 'lat', 'year', 'SPEI', 'extHeat', 'tmp', 'cld', 'dtr',
-                     'frs', 'pet', 'pre', 'tmn', 'tmx', 'vap', 'wet']]
-
-y_test = df_comb_10['yield']
-
 y_hat_linreg = pd.DataFrame(linr.predict(x_test))
-
-# Hyperparameters
-target = 'yield'
-batch_size = 1024
-EPOCHS = 30
-learning_rate = 0.001
-criterion = nn.MSELoss()
-optm = Adam(model.parameters(), lr=learning_rate)
-K = 10
 
 # PYTORCH
 
@@ -68,8 +44,18 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'
 
-dataset_train = makeDataset(
-    datapath + "historical_combined_train90.csv", 'yield')
+# Hyperparameters
+model = neuralNet(df_train.shape[1] - 1).to(device)
+target = 'yield'
+batch_size = 1024
+EPOCHS = 30
+learning_rate = 0.001
+criterion = nn.MSELoss()
+optm = Adam(model.parameters(), lr=learning_rate)
+K = 10
+delta_loss_break = 1.e-3
+
+dataset_train = makeDataset(df_train, 'yield')
 dataload_train = DataLoader(dataset=dataset_train, num_workers=8,
                             pin_memory=True, batch_size=batch_size, shuffle=False)
 
@@ -82,33 +68,50 @@ model_loss = pd.DataFrame({
     "Test set RMSE": []
 })
 
-model = neuralNet(df_comb_90.shape[1] - 1).to(device)
-
+last_loss = 1
 for epoch in range(EPOCHS):
-
     epoch_loss = train_epoch(dataload_train, model, optm, criterion, device)
 
-    y_hat_nn = pd.DataFrame(model(x_nn_test).cpu().detach())
-    rmse_test = rmse(y_test, y_hat_nn)
+    y_hat_train_nn = pd.DataFrame(model(x_nn_train).cpu().detach())
+    y_hat_test_nn = pd.DataFrame(model(x_nn_test).cpu().detach())
+
+    rmse_train = rmse(y_train, y_hat_train_nn)
+    rmse_test = rmse(y_test, y_hat_test_nn)
 
     print('Epoch {} of {} Loss : {}'.format((epoch + 1), EPOCHS, epoch_loss))
+    print('Epoch {} Train set RMSE : {}'.format((epoch + 1), rmse_train))
     print('Epoch {} Test set RMSE : {}'.format((epoch + 1), rmse_test))
 
     ml = pd.DataFrame({
         "Epoch:": [epoch + 1],
-        "Training set RMSE": [sqrt(epoch_loss)],
+        "Training set Loss - Pytorch": [sqrt(epoch_loss)],
+        "Training set RMSE - Own": [rmse_train],
         "Test set RMSE": [rmse_test]
     })
 
     model_loss = pd.concat([model_loss, ml])
+    if abs(epoch_loss - last_loss) < delta_loss_break:
+        break
+
+    last_loss = epoch_loss
 
 # Calc RMSE
 y_hat_nn_test = pd.DataFrame(model(x_nn_test).cpu().detach())
 y_hat_nn_train = pd.DataFrame(model(x_nn_train).cpu().detach())
 
 rmse(y_train, y_hat_nn_train)
-rmse(y_test, y_hat_linreg)
-rmse(y_test, y_hat_nn)
 
-y_hat_nn_zeros = y_hat_nn.clip(lower=0)
+rmse(y_test, y_hat_linreg)
+rmse(y_test, y_hat_nn_test)
+
 rmse(y_test, y_hat_nn_zeros)
+x_nn_test.col
+df_test
+
+model_errors = pd.DataFrame({
+    'lon': df_test.lon,
+    'lat': df_test.lat,
+    "Test values:": df_test['yield'],
+    "pred_nn": y_hat_nn_test,
+    "pred_linreg": y_hat_linreg,
+})

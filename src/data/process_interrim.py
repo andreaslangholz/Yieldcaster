@@ -99,8 +99,8 @@ for crop in crops:
     df_comb_pre = df_comb_crop[df_comb_crop['year'] <= (max(df_comb_crop['year']) - years_hold_out)]
     df_comb_post = df_comb_crop[df_comb_crop['year'] > (max(df_comb_crop['year']) - years_hold_out)]
 
-    df_comb_pre.to_csv(croppath + 'df_' + crop + "historical_1yearshold_pre.csv")
-    df_comb_post.to_csv(croppath + 'df_' + crop + "historical_1yearshold_post.csv")
+    df_comb_pre.to_csv(croppath + 'df_' + crop + "_historical_1yearshold_pre.csv")
+    df_comb_post.to_csv(croppath + 'df_' + crop + "_historical_1yearshold_post.csv")
 
     # Output training and test set w years_hold_out in test set
     years_hold_out = 5
