@@ -30,8 +30,8 @@ def train(model, x, y, optimizer, criterion):
 def kfold_cv(dataload_train, model, optimizer, criterion, device, epochs, K=5):
     splits = KFold(n_splits = K, shuffle=True, random_state=42)
     foldperf = {}
-    for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(dataset)))):
 
+    for fold, (train_idx, val_idx) in enumerate(splits.split(np.arange(len(dataset)))):
         print('Fold {}'.format(fold + 1))
 
         train_sampler = SubsetRandomSampler(train_idx)
@@ -87,9 +87,7 @@ def kfold_cv(dataload_train, model, optimizer, criterion, device, epochs, K=5):
 
     return foldperf
 
-
 # Model class
-
 class neuralNet(nn.Module):
     def __init__(self, num_feat):
         super().__init__()

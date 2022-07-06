@@ -13,6 +13,15 @@ from src.utils import makeDataset, rmse
 from src.models import neuralNet, train_epoch
 
 datapath = "C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Data\\Processed\\"
+
+def get_dat(crop, type = 'mix'):
+    datapath = "C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Data\\Processed\\"
+    croppath = datapath + crop +'\\'
+    if type == 'mix':
+        df_train = pd.read_csv(croppath + 'df_' + crop +'_historical_mix_')
+        df_test = pd.read_csv()
+    
+
 df_comb_90 = pd.read_csv(
     datapath + "historical_combined_train90.csv", index_col=0)
 df_comb_10 = pd.read_csv(

@@ -1,16 +1,11 @@
 import os.path
 if __name__ == '__main__': print('running process_raw_combine_common.py')
 
-import sys
-sys.path.append("..")# sys.path.append("..") # Adds higher directory to python modules path.
-
 import pandas as pd
-import xarray as xr
-from os.path import exists
 
 # TODO: Set relative path if needed (doesnt work right now but maybe for server)
 # datapath = sys.path[len(sys.path) - 1] + "/data/"
-datapath = 'C:\\Users\\langh\\OneDrive\\Documents\\Imperial\\Individual_project\\Yieldcaster\\data\\'
+datapath = 'C:\\Users\\langh\\Individual_project\\Yieldcaster\\data\\'
 rawpath = datapath + "raw/"
 interrimpath = datapath + "interrim/"
 
