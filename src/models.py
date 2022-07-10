@@ -97,7 +97,7 @@ def train_k_epochs(train_load, test_load, model, optimizer, criterion, out = Fal
             test_rmse, _ = calc_loss_rmse(model, test_load)
             if out: 
                 print('\nEpoch {} of {} MSE : {}'.format(
-                    (epoch + 1), epochs, round(epoch_loss,4))
+                    (epoch + 1), epochs, round(epoch_loss,4)))
                 print('Epoch {} Train set RMSE : {}'.format((epoch + 1), round(train_rmse, 4)))
                 print('Epoch {} Test set RMSE : {}'.format((epoch + 1), round(test_rmse, 4)))
 
