@@ -6,7 +6,7 @@ import xarray as xr
 
 # TODO: Set relative path if needed (doesnt work right now but maybe for server)
 # datapath = sys.path[len(sys.path) - 1] + "/data/"
-datapath = 'C:\\Users\\langh\\Individual_project\\Yieldcaster\\data\\'
+datapath = 'C:\\Users\\Andreas Langholz\\Yieldcaster\\data\\'
 rawpath = datapath + "raw/"
 interrimpath = datapath + "interrim/"
 

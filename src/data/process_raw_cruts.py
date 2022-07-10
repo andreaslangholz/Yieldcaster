@@ -29,12 +29,19 @@ interrimpath = datapath + "interrim/"
 path_cruts = rawpath + 'cruts/'
 vars = ['tmp','tmn', 'tmx', 'vap', 'pre']
 
-print("Unzipping")
+zip = False
 
-for var in vars:
-    path_var = path_cruts + 'gz/' + 'cru_ts4.05.1901.2020.'+ var +'.dat.nc.gz'
-    path_var_out = path_cruts + 'cruts_' + var +'.nc'
-    ut.gunzip(path_var, path_var_out)
+try:
+    zip = sys.argv[1]
+except:
+    print('No unzipping')
+
+if zip:
+    print("Unzipping")
+    for var in vars:
+        path_var = path_cruts + 'gz/' + 'cru_ts4.05.1901.2020.'+ var +'.dat.nc.gz'
+        path_var_out = path_cruts + 'cruts_' + var +'.nc'
+        ut.gunzip(path_var, path_var_out)
 
 #### CRUTS ####
 print("Processing CRUTS")
@@ -45,7 +52,7 @@ yieldmask = pd.read_csv(interrimpath + 'yieldmask.csv', index_col=0)
 var = 'cld'
 
 path_var = path_cruts + 'cruts_' + var +'.nc'
-path_var_save = path_cruts + 'cruts_var/' + 'cruts_' + var + '.csv'
+path_var_save = interrimpath + 'cruts_var/' + 'cruts_' + var + '.csv'
 
 df_var = xr.open_dataset(path_var).to_dataframe().reset_index()
 df_var = df_var[df_var["time"] > '1980-01-16']
@@ -63,14 +70,12 @@ df_var.to_csv(path_var_save)
 print('first done!')
 
 df_cruts_out = df_var
-del df_var
-
 df_cruts_out.set_index(coords, inplace=True)
 
 for var in vars:
     print(var)
     path_var = path_cruts + 'cruts_' + var +'.nc'
-    path_var_save = path_cruts + 'cruts_var/' + 'cruts_' + var + '.csv'
+    path_var_save = interrimpath + 'cruts_var/' + 'cruts_' + var + '.csv'
 
     df_var = xr.open_dataset(path_var).to_dataframe().reset_index()
     df_var = df_var[df_var["time"] > '1980-01-16']

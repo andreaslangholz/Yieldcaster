@@ -1,8 +1,22 @@
 
 import pandas as pd
 import numpy as np
-from src.utils import fast_join, df_mth_to_year
 import random
+import sys
+
+# sys.path.append("..") # Adds higher directory to python modules path.
+sys.path.append("..")
+try:
+    import utils as ut
+    print('utils loaded from ..')
+except:
+    print('no module in ..')
+    try:
+        import src.utils as ut
+        print('utils loaded from src')
+    except:
+        print('no module src')
+
 
 # Parameters
 harvest_month = 5  # mth used for SPEI and
@@ -10,30 +24,32 @@ pct_train = 0.90  # training/test splits
 random.seed(10)
 
 ## combining sets
-datapath = 'C:\\Users\\langh\\Individual_project\\Yieldcaster\\data\\'
+datapath = "C:\\Users\\Andreas Langholz\\Yieldcaster\\data\\"
 interrimpath = datapath + "interrim/"
 processedpath = datapath + "processed/"
 
 # indexes
-crops = ["wheat", "maize", "rice", "soy"]
+crops = ["wheat_winter", "wheat_spring", "maize", "rice", "soy"]
 coords = ['lon', 'lat', 'year']
 
 # Load feature subsets with positive yields
-df_spei = pd.read_csv(interrimpath + "df_spei_mth_yield.csv", index_col=0)
-df_cruts_mth = pd.read_csv(interrimpath + 'df_cruts_mth_yield.csv', index_col=0)
-df_heat = pd.read_csv(interrimpath + "df_heat_mth_yield.csv", index_col=0)
+df_spei = pd.read_csv(interrimpath + "df_spei_mth_8017.csv", index_col=0)
+df_cruts_mth = pd.read_csv(interrimpath + 'df_cruts_mth.csv', index_col=0)
+df_heat = pd.read_csv(interrimpath + "df_heat_mth.csv", index_col=0)
 
 # Convert CRUTS from Monthly to Year structure
-df_cruts = df_mth_to_year(df_cruts_mth)
+df_cruts = ut.df_mth_to_year(df_cruts_mth)
 
 # subset SPEI only for harvest month
 df_spei = df_spei[df_spei['month'] == harvest_month]
 
 # combine SPEI and CRUTS as these do not vary per crop
 df_comb = df_spei.merge(df_cruts, on=['lon', 'lat', 'year'], how='inner')
+df_comb.drop('month', axis = 1, inplace = True)
 
-# subset SPEI only for harvest month
+# Subset SPEI only for harvest month
 df_heat = df_heat[df_heat['month'] == harvest_month]
+df_heat.drop('month', axis = 1, inplace = True)
 
 ## Make datasets for each crop
 for crop in crops:
@@ -43,21 +59,19 @@ for crop in crops:
     # Subset heat to relevant crop
     if crop == 'maize' or crop == 'rice':
         c = 'maizerice'
-    else:
-        c = crop
+    elif crop == 'wheat_spring' or crop == 'wheat_winter':
+        c = 'wheat'
 
     df_heat_c = df_heat[coords + [c + '_mth', c + '_6mths']]
 
     # Make combined dataset with features
-    df_comb_crop = fast_join(df_comb, df_heat_c, ['lon', 'lat', 'year'], 'inner')
+    df_comb_crop = ut.fast_join(df_comb, df_heat_c, ['lon', 'lat', 'year'], 'inner')
     df_comb = df_comb.reset_index()
-    df_comb_crop.drop(['val', 'month'], axis=1, inplace=True)
 
     # Make full dataset with yields
-    df_yield = pd.read_csv(interrimpath + 'df_' + crop + '_yield.csv', index_col=0)
-    df_comb_crop = fast_join(df_comb_crop, df_yield, ['lon', 'lat', 'year'], 'inner')
+    df_yield = pd.read_csv(interrimpath + 'yield\\df_' + crop + '_yield.csv', index_col=0)
+    df_comb_crop = ut.fast_join(df_comb_crop, df_yield, ['lon', 'lat', 'year'], 'inner')
     df_comb_crop = df_comb_crop.reset_index()
-
 
     # Output training and test set w pct_train % split randomly
     num_rows = len(df_comb_crop)
@@ -84,10 +98,10 @@ for crop in crops:
     df_coords_train = df_coords.iloc[train_idx]
     df_coords_test = df_coords.iloc[test_idx]
 
-    df_comb_train = fast_join(df_comb_crop, df_coords_train, ['lon', 'lat'], 'inner')
+    df_comb_train = ut.fast_join(df_comb_crop, df_coords_train, ['lon', 'lat'], 'inner')
     df_comb_crop = df_comb_crop.reset_index()
 
-    df_comb_test = fast_join(df_comb_crop, df_coords_test, ['lon', 'lat'], 'inner')
+    df_comb_test = ut.fast_join(df_comb_crop, df_coords_test, ['lon', 'lat'], 'inner')
     df_comb_crop = df_comb_crop.reset_index()
 
     df_comb_train.to_csv(croppath + 'df_' + crop + "_historical_pix_train90.csv")
@@ -110,3 +124,4 @@ for crop in crops:
 
     df_comb_pre.to_csv(croppath + 'df_' + crop + "_historical_5yearshold_pre.csv")
     df_comb_post.to_csv(croppath + 'df_' + crop + "_historical_5yearshold_post.csv")
+

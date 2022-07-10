@@ -1,3 +1,4 @@
+from tkinter import Y
 import pandas as pd
 from sklearn.linear_model import LinearRegression
 import torch
@@ -6,34 +7,17 @@ import torch.nn as nn
 from torch.optim import Adam, SGD
 from math import sqrt
 from src.utils import makeDataset, rmse, get_data
-from src.models import neuralNet, train_epoch
+from src.models import kfold_cv, neuralNet, train_epoch, train_k_epochs
+
+import tqdm
 import warnings
+import torch.optim as optim
+import optuna
+
 warnings.filterwarnings("ignore")
 
-df_train, df_test = get_data('wheat')
-target = 'yield'
-
-#TODO: (1) FIX MISSING FRS NANS! (2) fix autoload of index
-try:
-    for i in range(1,13):
-        df_train = df_train.loc[:, df_train.columns != ('frs' + str(i))]
-        df_test  = df_test.loc[:, df_test.columns != ('frs' + str(i))]
-except:
-    print('no frs')
-
-# Split for rmse values
-x_train = df_train.loc[:, df_train.columns != target]
-y_train = df_train[target]
-x_test = df_test.loc[:, df_test.columns != target]
-y_test = df_test[target]
-
-# Train linear model
-linr = LinearRegression()
-linr.fit(x_train, y_train)
-
-y_hat_linreg = pd.DataFrame(linr.predict(x_test))
-
 # PYTORCH
+df_train, df_test = get_data('wheat_winter')
 
 # Set up CUDA
 if torch.cuda.is_available():
@@ -48,52 +32,107 @@ else:
 model = neuralNet(df_train.shape[1] - 1).to(device)
 target = 'yield'
 batch_size = 1024
-EPOCHS = 30
+EPOCHS = 5
 learning_rate = 0.001
+K = 5
+
 criterion = nn.MSELoss()
+
 optm = Adam(model.parameters(), lr=learning_rate)
-K = 10
-delta_loss_break = 1.e-3
 
 dataset_train = makeDataset(df_train, 'yield')
-dataload_train = DataLoader(dataset=dataset_train, num_workers=8,
-                            pin_memory=True, batch_size=batch_size, shuffle=False)
+dataset_test = makeDataset(df_test, 'yield')
+
+
+dl_train = DataLoader(dataset_train, batch_size)
+dl_test = DataLoader(dataset_test, batch_size)
+
+train_epoch(dl_train, model, optm, criterion, device)
+train_k_epochs(dl_train, dl_test, model, optm, criterion, epochs = EPOCHS, device = device)
+
+kfold = kfold_cv(dataset_train, model, optm, criterion, EPOCHS, batch_size, K, device)
+foldperf = kfold
+
+
+avg = pd.DataFrame({
+    "Epoch:": [],
+    "loss": [],
+    "train_rmse": [],
+    "test_rmse": []
+})
+
+x = foldperf['fold{}'.format(1)]['loss'].reset_index()['loss'][0]
+y = foldperf['fold{}'.format(1)]['loss'].reset_index()['loss'][1]
+
+x + y
+
+for e in range(0, EPOCHS):
+    loss, tar, ter = 0, 0, 0
+    for k in range(1, K+1):
+        loss += foldperf['fold{}'.format(k)]['loss'].reset_index()['loss'][e]
+        tar += foldperf['fold{}'.format(k)]['train_rmse'].reset_index()['train_rmse'][e]
+        ter += foldperf['fold{}'.format(k)]['test_rmse'].reset_index()['test_rmse'][e]
+    print(loss, tar, ter)
+    avg_ep = pd.DataFrame({
+        "Epoch:": [e + 1],
+        "loss": [loss / K],
+        "train_rmse": [tar / K],
+        "test_rmse": [ter / K]
+    })
+    avg = pd.concat([avg, avg_ep])
+
+
+ml = pd.DataFrame({
+    "Epoch:": [],
+    "loss": [],
+    "train_rmse": [],
+    "test_rmse": []
+})
+
+foldperf = kfold
+
+
+import matplotlib.pyplot as plt
+
+plt.plot(kfold['fold1']['Epoch:'], kfold['fold1'].train_rmse)
+plt.show()
+
+
+
+def objective(trial, inp_features, dataset_train, criterion):
+
+    params = {
+              'learning_rate': trial.suggest_loguniform('learning_rate', 1e-5, 1e-1),
+              'optimizer': trial.suggest_categorical("optimizer", ["Adam", "RMSprop", "SGD"]),
+              'n_unit': trial.suggest_int("n_unit", 4, 20)
+              }
+    
+    model = neuralNet(inp_features, params['n_unit'])
+
+    optm = getattr(optim, params['optimizer'])(model.parameters(), lr= params['learning_rate'])
+    kfold_performance = kfold_cv(dataset_train, model, optm, criterion)
+    return kfold_performance
+
+    
+study = optuna.create_study(direction="minimize", sampler=optuna.samplers.TPESampler())
+study.optimize(objective, n_trials=30)
+
+target = 'yield'
+
+# Split for rmse values
+x_train = df_train.loc[:, df_train.columns != target]
+y_train = df_train[target]
+x_test = df_test.loc[:, df_test.columns != target]
+y_test = df_test[target]
+
+# Train linear model
+linr = LinearRegression()
+linr.fit(x_train, y_train)
+
+y_hat_linreg = pd.DataFrame(linr.predict(x_test))
 
 x_nn_train = torch.Tensor(x_train.values).to(device)
 x_nn_test = torch.Tensor(x_test.values).to(device)
-
-model_loss = pd.DataFrame({
-    "Epoch:": [],
-    "Training set RMSE": [],
-    "Test set RMSE": []
-})
-
-last_loss = 1
-for epoch in range(EPOCHS):
-    epoch_loss = train_epoch(dataload_train, model, optm, criterion, device)
-
-    y_hat_train_nn = pd.DataFrame(model(x_nn_train).cpu().detach())
-    y_hat_test_nn = pd.DataFrame(model(x_nn_test).cpu().detach())
-
-    rmse_train = rmse(y_train, y_hat_train_nn)
-    rmse_test = rmse(y_test, y_hat_test_nn)
-
-    print('Epoch {} of {} Loss : {}'.format((epoch + 1), EPOCHS, epoch_loss))
-    print('Epoch {} Train set RMSE : {}'.format((epoch + 1), rmse_train))
-    print('Epoch {} Test set RMSE : {}'.format((epoch + 1), rmse_test))
-
-    ml = pd.DataFrame({
-        "Epoch:": [epoch + 1],
-        "Training set Loss - Pytorch": [sqrt(epoch_loss)],
-        "Training set RMSE - Own": [rmse_train],
-        "Test set RMSE": [rmse_test]
-    })
-
-    model_loss = pd.concat([model_loss, ml])
-    if abs(epoch_loss - last_loss) < delta_loss_break:
-        break
-
-    last_loss = epoch_loss
 
 # Calc RMSE
 y_hat_nn_test = pd.DataFrame(model(x_nn_test).cpu().detach())
@@ -103,15 +142,3 @@ rmse(y_train, y_hat_nn_train)
 
 rmse(y_test, y_hat_linreg)
 rmse(y_test, y_hat_nn_test)
-
-rmse(y_test, y_hat_nn_zeros)
-x_nn_test.col
-df_test
-
-model_errors = pd.DataFrame({
-    'lon': df_test.lon,
-    'lat': df_test.lat,
-    "Test values:": df_test['yield'],
-    "pred_nn": y_hat_nn_test,
-    "pred_linreg": y_hat_linreg,
-})

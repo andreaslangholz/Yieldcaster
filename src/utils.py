@@ -63,7 +63,7 @@ def recenter_lon(lon):
 
 def get_data(crop, type='mix'):
     global df_train, df_test
-    datapath = "C:\\Users\\langh\\Individual_project\\Yieldcaster\\Data\\Processed\\"
+    datapath = "C:\\Users\\Andreas Langholz\\Yieldcaster\\Data\\Processed\\"
     croppath = datapath + crop + '\\'
     if type == 'mix':
         df_train = pd.read_csv(croppath + 'df_' + crop + '_historical_mix_train90.csv', index_col=0)
@@ -111,8 +111,7 @@ def fast_join(df1, df2, list_to_join_on, how='outer'):
     df_out = df_out.reset_index()
     return df_out
 
-
-
+# Not used
 def sub_mask(df, mask='yield'):
     if mask == 'yield':
         df_mask = pd.read_csv("C:\\Users\\langh\\Individual_project\\Yieldcaster\\data\\interrim\\yield_mask.csv",
