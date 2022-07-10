@@ -2,6 +2,7 @@ import folium
 from shapely.geometry import Point
 import shapely
 import geopandas as gpd
+import numpy as np
 
 
 def get_square_around_point(point_geom, delta_size=0.25):

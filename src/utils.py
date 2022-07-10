@@ -9,33 +9,6 @@ import gzip
 #print(__package__)
 #print(__name__)
 
-class makeDataset(Dataset):
-    def __init__(self, df, target, mode='train'):
-        self.mode = mode
-        self.df = df
-
-        if self.mode == 'train':
-            self.df = self.df.dropna()
-            self.oup = self.df.pop(target).values.reshape(len(df), 1)
-            self.inp = self.df.values
-        else:
-            self.inp = self.df.values
-
-    def __len__(self):
-        return len(self.inp)
-
-    def __getitem__(self, idx):
-        if self.mode == 'train':
-            inpt = torch.Tensor(self.inp[idx])
-            oupt = torch.Tensor(self.oup[idx])
-            return {'inp': inpt,
-                    'oup': oupt
-                    }
-        else:
-            inpt = torch.Tensor(self.inp[idx])
-            return {'inp': inpt
-                    }
-
 def gunzip(source_filepath, dest_filepath, block_size=65536):
     with gzip.open(source_filepath, 'rb') as s_file, \
             open(dest_filepath, 'wb') as d_file:
@@ -54,6 +27,21 @@ def maximumZero(x):
         return x
     else:
         return 0
+
+def baseline_rolling(df, year_roll):
+    df_c_all = df[['lon','lat', 'year', 'yield']]
+    df_c = df_c_all.groupby(['lon', 'lat']).size().reset_index()
+    df_c.columns = ['lon', 'lat', 'count']
+    df_c = df_c[df_c['count'] > 25]
+    df_coords = df_c_all.merge(df_c, on = ['lon', 'lat'], how = 'inner')
+    df_coords['rolling_yield3'] = df_coords['yield'].rolling(year_roll).mean()
+    df_coords.loc[df_coords['year'] < (1981 + year_roll), 'rolling_yield3'] = df_coords['yield']
+    df_coords['year'] = df_coords['year'] - 1
+    df_coords = df_coords[['lon', 'lat', 'year', 'rolling_yield3']]
+    df_out = df_c_all.merge(df_coords, on=['lon','lat', 'year'], how = 'inner')
+    df_out['errors'] = abs(df_out['yield'] - df_out['rolling_yield3'])
+    return df_out
+
 
 def recenter_lon(lon):
     if lon > 180:
@@ -122,8 +110,13 @@ def sub_mask(df, mask='yield'):
     df_out = df.merge(df_mask, on=['lon','lat'], how = 'inner')
     return df_out
 
-def subset(df, year = 2000, month = 5):
-    return df[(df['year'] == year) & (df['month'] == month)]
+def subset(df, month_out = True, year = 2000, month = 5):
+    if month_out:
+        df_out = df[(df['year'] == year) & (df['month'] == month)]
+    else:
+        df_out = df[df['year'] == year] 
+    return df_out
+
 
 def timeToDays(timestr):
     if type(timestr) == str:
