@@ -24,8 +24,6 @@ K = 5
 criterion = nn.MSELoss()
 
 # Set up Study
-
-
 def objective(trial, inp_features, dataset_train, criterion, epochs):
     params = {
         'learning_rate': trial.suggest_loguniform('learning_rate', 1e-5, 1e-1),

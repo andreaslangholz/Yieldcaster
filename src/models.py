@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore")
 
 # Model class
 
+
 class neuralNet(nn.Module):
     def __init__(self, num_feat_inp, L1=10):
         super().__init__()
@@ -24,6 +25,21 @@ class neuralNet(nn.Module):
         x = functional.relu(self.hidden_layer(x))
         x = self.output_layer(x)
         return x
+
+
+class bigNeuralNet(nn.Module):
+    def __init__(self, num_feat_inp, L1=50, L2=10):
+        super().__init__()
+        self.hidden_l1 = nn.Linear(num_feat_inp, L1)
+        self.hidden_l2 = nn.Linear(L1, L2)
+        self.output_layer = nn.Linear(L2, 1)
+
+    def forward(self, x):
+        x = functional.relu(self.hidden_l1(x))
+        x = functional.relu(self.hidden_l2(x))
+        x = self.output_layer(x)
+        return x
+
 
 ## Trainer functions ##
 
@@ -37,6 +53,8 @@ def train_batch(model, x_batch, y_batch, optimizer, criterion):
     return loss, output
 
 # Training 1 epoch
+
+
 def train_epoch(dataload_train, model, optimizer, criterion, device):
     epoch_loss = 0
     nb = 0
@@ -59,14 +77,17 @@ def calc_loss_rmse(model, dataloader, device="cpu"):
         x_train, y_train = batch['inp'], batch['oup']
         x_train = x_train.to(device)
         y_train = y_train.to(device)
-        
+
         b = len(x_train)
         N += b
         predictions = model(x_train)
-        se += b * mean_squared_error(y_train.detach().numpy(), predictions.detach().numpy())
-        
+        se += b * \
+            mean_squared_error(y_train.detach().numpy(),
+                               predictions.detach().numpy())
+
     rmse = sqrt(se / N)
     return rmse, se
+
 
 def criterion_rmse(input, target):
     y_hat = input.detach().numpy()
@@ -75,7 +96,7 @@ def criterion_rmse(input, target):
     return torch.Tensor(rmse)
 
 
-def train_k_epochs(train_load, test_load, model, optimizer, criterion, out = False, epochs=50, device='cpu', delta_break=10e-4):
+def train_k_epochs(train_load, test_load, model, optimizer, criterion, out=False, epochs=50, device='cpu', delta_break=10e-4):
     model_loss = pd.DataFrame({
         "Epoch:": [],
         "loss": [],
@@ -91,15 +112,17 @@ def train_k_epochs(train_load, test_load, model, optimizer, criterion, out = Fal
             train_load, model, optimizer, criterion, device)
 
         model.eval()
-        
+
         with torch.no_grad():
             train_rmse, _ = calc_loss_rmse(model, train_load)
             test_rmse, _ = calc_loss_rmse(model, test_load)
-            if out: 
+            if out:
                 print('\nEpoch {} of {} MSE : {}'.format(
-                    (epoch + 1), epochs, round(epoch_loss,4)))
-                print('Epoch {} Train set RMSE : {}'.format((epoch + 1), round(train_rmse, 4)))
-                print('Epoch {} Test set RMSE : {}'.format((epoch + 1), round(test_rmse, 4)))
+                    (epoch + 1), epochs, round(epoch_loss.item(), 4)))
+                print('Epoch {} Train set RMSE : {}'.format(
+                    (epoch + 1), round(train_rmse, 4)))
+                print('Epoch {} Test set RMSE : {}'.format(
+                    (epoch + 1), round(test_rmse, 4)))
 
             ml = pd.DataFrame({
                 "Epoch:": [epoch + 1],
@@ -113,22 +136,24 @@ def train_k_epochs(train_load, test_load, model, optimizer, criterion, out = Fal
         if abs(epoch_loss - last_loss) < delta_break:
             break
         last_loss = epoch_loss
-        
+
         model.train()
 
     return model_loss
+
 
 def reset_weights(m):
     if isinstance(m, nn.Conv2d) or isinstance(m, nn.Linear):
         m.reset_parameters()
 
-def kfold_cv(dataset, model, optimizer, criterion, out = False, epochs=30, batch_size=256, K=5, device="cpu"):
+
+def kfold_cv(dataset, model, optimizer, criterion, out=False, epochs=30, batch_size=256, K=5, device="cpu"):
     splits = KFold(n_splits=K, shuffle=True, random_state=42)
     foldperf = {}
 
     for fold, (train_idx, val_idx) in tqdm(enumerate(splits.split(np.arange(len(dataset))))):
-        mf = model.copy()    
-        
+        mf = model.copy()
+
         print('\nFold {}\n'.format(fold + 1))
 
         train_sampler = SubsetRandomSampler(train_idx)
@@ -147,17 +172,22 @@ def kfold_cv(dataset, model, optimizer, criterion, out = False, epochs=30, batch
         foldperf['fold{}'.format(fold + 1)] = model_loss
         print('\n')
 
-    avg = pd.DataFrame({"Epoch:": [], "loss": [], "train_rmse": [], "test_rmse": []})
+    avg = pd.DataFrame(
+        {"Epoch:": [], "loss": [], "train_rmse": [], "test_rmse": []})
 
+    # Calculate the averages of the folds
     for e in range(0, epochs):
         loss, tar, ter = 0, 0, 0
         for k in range(1, K+1):
-            loss += foldperf['fold{}'.format(k)]['loss'].reset_index()['loss'][e]
-            tar += foldperf['fold{}'.format(k)]['train_rmse'].reset_index()['train_rmse'][e]
-            ter += foldperf['fold{}'.format(k)]['test_rmse'].reset_index()['test_rmse'][e]
-        
-        avg_ep = pd.DataFrame({"Epoch:": [e + 1], "loss": [loss / K], 
-            "train_rmse": [tar / K], "test_rmse": [ter / K]})
+            loss += foldperf['fold{}'.format(k)
+                             ]['loss'].reset_index()['loss'][e]
+            tar += foldperf['fold{}'.format(k)
+                            ]['train_rmse'].reset_index()['train_rmse'][e]
+            ter += foldperf['fold{}'.format(k)
+                            ]['test_rmse'].reset_index()['test_rmse'][e]
+
+        avg_ep = pd.DataFrame({"Epoch:": [e + 1], "loss": [loss / K],
+                               "train_rmse": [tar / K], "test_rmse": [ter / K]})
 
         avg = pd.concat([avg, avg_ep])
 
@@ -166,7 +196,7 @@ def kfold_cv(dataset, model, optimizer, criterion, out = False, epochs=30, batch
     return foldperf
 
 
-# Dataset functions 
+# Dataset functions
 
 class makeDataset(Dataset):
     def __init__(self, df, target, mode='train'):
