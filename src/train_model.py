@@ -39,7 +39,7 @@ test_load = DataLoader(dataset_test, batch_size=batch_size)
 model_loss = train_k_epochs(train_load, test_load, model, optimizer, criterion, out=True, epochs=EPOCHS, device=device)
 
 # Save the model!
-#TODO: Save the model
+torch.save(model, "C:\\Users\\Andreas Langholz\\Yieldcaster\\models\\" + model_name + ".pt")
 model_loss.to_csv("C:\\Users\\Andreas Langholz\\Yieldcaster\\data\\outputs\\hist_errors\\" + model_name + "_loss.csv")
 
 ### Compare outputs ###

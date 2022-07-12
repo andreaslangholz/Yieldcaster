@@ -19,9 +19,11 @@ except:
 
 
 # Parameters
-harvest_month = 5  # mth used for SPEI and
+harvest_month = 5  # mth used for SPEI and heat
 pct_train = 0.90  # training/test splits
 random.seed(10)
+min_year = 1982
+max_year = 2015
 
 ## combining sets
 datapath = "C:\\Users\\Andreas Langholz\\Yieldcaster\\data\\"
@@ -72,6 +74,9 @@ for crop in crops:
     df_yield = pd.read_csv(interrimpath + 'yield\\df_' + crop + '_yield.csv', index_col=0)
     df_comb_crop = ut.fast_join(df_comb_crop, df_yield, ['lon', 'lat', 'year'], 'inner')
     df_comb_crop = df_comb_crop.reset_index()
+
+    # Drop outer years
+    df_comb_crop = df_comb_crop[(df_comb_crop['year'] >= min_year) & (df_comb_crop['year'] <= max_year)]
 
     # Output training and test set w pct_train % split randomly
     num_rows = len(df_comb_crop)
