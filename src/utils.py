@@ -4,7 +4,9 @@ from numpy import sqrt
 from sklearn.metrics import mean_squared_error
 from torch.utils.data import Dataset
 import re
+import math
 import gzip
+import numpy as np
 
 #print(__package__)
 #print(__name__)
@@ -99,6 +101,13 @@ def fast_join(df1, df2, list_to_join_on, how='outer'):
     df_out = df_out.reset_index()
     return df_out
 
+def round_to_quarters(x):
+    x_abs = abs(x)
+    dif = x_abs - np.round(x_abs)
+    new_dec = 0.75 if dif < 0 else 0.25
+    x_out = math.copysign(1,x) * (math.floor(x_abs) + new_dec)
+    return x_out
+
 # Not used
 def sub_mask(df, mask='yield'):
     if mask == 'yield':
@@ -110,7 +119,7 @@ def sub_mask(df, mask='yield'):
     df_out = df.merge(df_mask, on=['lon','lat'], how = 'inner')
     return df_out
 
-def subset(df, month_out = True, year = 2000, month = 5):
+def subset(df, month_out = True, year = 2010, month = 5):
     if month_out:
         df_out = df[(df['year'] == year) & (df['month'] == month)]
     else:
