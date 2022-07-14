@@ -3,6 +3,7 @@ if __name__ == '__main__': print('running process_raw_spei.py')
 
 import pandas as pd
 import xarray as xr
+import src.utils as ut
 
 # TODO: Set relative path if needed (doesnt work right now but maybe for server)
 # datapath = sys.path[len(sys.path) - 1] + "/data/"
@@ -18,8 +19,11 @@ path_spei = rawpath + "spei/SPEI_12_Amon_EC-EARTH3-HR_rcp85_r1i1p1.nc"
 yieldmask = pd.read_csv(interrimpath + 'yieldmask.csv', index_col=0)
 
 df_spei = xr.open_dataset(path_spei).to_dataframe().reset_index()
-df_spei = df_spei.merge(yieldmask, on = ['lon', 'lat'], how = 'inner')
 df_spei = df_spei.dropna()
+df_land = ut.subset(df_spei)
+df_land = df_land[['lon', 'lat']]
+df_land.to_csv(interrimpath + 'landmask.csv')
+df_spei = df_spei.merge(yieldmask, on = ['lon', 'lat'], how = 'inner')
 df_spei['month'] = pd.DatetimeIndex(df_spei['time']).month
 df_spei['year'] = pd.DatetimeIndex(df_spei['time']).year
 df_spei.drop('time', axis=1, inplace = True)

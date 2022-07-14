@@ -4,6 +4,8 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset, SubsetRandomSam
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+
 from torch.nn import functional
 from tqdm import tqdm
 import torch.nn as nn
@@ -27,7 +29,35 @@ class neuralNet(nn.Module):
         return x
 
 
-class bigNeuralNet(nn.Module):
+class twoLayerNN(nn.Module):
+    def __init__(self, num_feat_inp, L1=50, L2=10):
+        super().__init__()
+        self.hidden_l1 = nn.Linear(num_feat_inp, L1)
+        self.hidden_l2 = nn.Linear(L1, L2)
+        self.output_layer = nn.Linear(L2, 1)
+
+    def forward(self, x):
+        x = functional.relu(self.hidden_l1(x))
+        x = functional.relu(self.hidden_l2(x))
+        x = self.output_layer(x)
+        return x
+
+
+class threeLayerNN(nn.Module):
+    def __init__(self, num_feat_inp, L1=50, L2=10, L3=10):
+        super().__init__()
+        self.hidden_l1 = nn.Linear(num_feat_inp, L1)
+        self.hidden_l2 = nn.Linear(L1, L2)
+        self.output_layer = nn.Linear(L2, 1)
+
+    def forward(self, x):
+        x = functional.relu(self.hidden_l1(x))
+        x = functional.relu(self.hidden_l2(x))
+        x = self.output_layer(x)
+        return x
+
+
+class LSTM(nn.Module):
     def __init__(self, num_feat_inp, L1=50, L2=10):
         super().__init__()
         self.hidden_l1 = nn.Linear(num_feat_inp, L1)
@@ -202,13 +232,15 @@ class makeDataset(Dataset):
     def __init__(self, df, target, mode='train'):
         self.mode = mode
         self.df = df
-
         if self.mode == 'train':
             self.df = self.df.dropna()
             self.oup = self.df.pop(target).values.reshape(len(df), 1)
             self.inp = self.df.values
         else:
             self.inp = self.df.values
+
+    def normalise(self, scaler):
+        self.inp = scaler.transform(self.inp)
 
     def __len__(self):
         return len(self.inp)

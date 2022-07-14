@@ -7,6 +7,7 @@ import re
 import math
 import gzip
 import numpy as np
+from datetime import datetime as dt
 
 #print(__package__)
 #print(__name__)
@@ -41,7 +42,6 @@ def baseline_rolling(df, year_roll):
     df_coords['year'] = df_coords['year'] - 1
     df_coords = df_coords[['lon', 'lat', 'year', 'rolling_yield3']]
     df_out = df_c_all.merge(df_coords, on=['lon','lat', 'year'], how = 'inner')
-    df_out['errors'] = abs(df_out['yield'] - df_out['rolling_yield3'])
     return df_out
 
 
@@ -50,6 +50,10 @@ def recenter_lon(lon):
         return lon - 360
     else:
         return lon
+
+def convert_to_dt(x):
+    return dt.strptime(str(x), '%Y-%m-%d %H:%M:%S')
+
 
 def get_data(crop, type='mix'):
     global df_train, df_test
