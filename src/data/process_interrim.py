@@ -17,7 +17,6 @@ except:
     except:
         print('no module src')
 
-
 # Parameters
 harvest_month = 5  # mth used for SPEI and heat
 pct_train = 0.90  # training/test splits
@@ -79,13 +78,28 @@ for crop in crops:
         df_comb, df_heat_c, ['lon', 'lat', 'year'], 'inner')
     df_comb = df_comb.reset_index()
 
-    # Make full dataset with yields
+    # Make full dataset with yields, harvest and production
     df_yield = pd.read_csv(interrimpath + 'yield\\df_' +
                            crop + '_yield.csv', index_col=0)
+
+    if c != 'maizerice':
+        h = c  
+    else:
+        h =  crop
+
+    df_harvest = pd.read_csv(
+        interrimpath + "harvest//df_" + h + "_har.csv", index_col=0)
+
     df_comb_crop = ut.fast_join(df_comb_crop, df_yield, [
                                 'lon', 'lat', 'year'], 'inner')
     df_comb_crop = df_comb_crop.reset_index()
 
+    df_comb_crop = ut.fast_join(df_comb_crop, df_harvest, [
+                                'lon', 'lat'], 'inner')
+    df_comb_crop = df_comb_crop.reset_index()
+
+    df_comb_crop['production'] = df_comb_crop['harvest'] * df_comb_crop['yield']
+    
     # Drop outer years
     df_comb_crop = df_comb_crop[(df_comb_crop['year'] >= min_year) & (
         df_comb_crop['year'] <= max_year)]
@@ -169,34 +183,33 @@ for crop in crops:
     # Europe hold out
     coord = coord_europe
     df_train_coord = df_comb_crop[((df_comb_crop['lat'] < coord['min_lat'])
-        | (df_comb_crop['lat'] > coord['max_lat']))
-        & ((df_comb_crop['lon'] < coord['min_lon']) 
-        | (df_comb_crop['lon'] > coord['max_lon']))]
+                                   | (df_comb_crop['lat'] > coord['max_lat']))
+                                  & ((df_comb_crop['lon'] < coord['min_lon'])
+                                     | (df_comb_crop['lon'] > coord['max_lon']))]
 
     df_test_coord = df_comb_crop[(df_comb_crop['lat'] > coord['min_lat'])
-        & (df_comb_crop['lat'] < coord['max_lat'])
-        & (df_comb_crop['lon'] > coord['min_lon']) 
-        & (df_comb_crop['lon'] < coord['max_lon'])]
+                                 & (df_comb_crop['lat'] < coord['max_lat'])
+                                 & (df_comb_crop['lon'] > coord['min_lon'])
+                                 & (df_comb_crop['lon'] < coord['max_lon'])]
 
     df_train_coord.to_csv(croppath + 'df_' + crop +
-                       "_train_holdout_europe.csv")
+                          "_train_holdout_europe.csv")
     df_test_coord.to_csv(croppath + 'df_' + crop +
-                        "_test_holdout_europe.csv")
+                         "_test_holdout_europe.csv")
 
     # China hold out
     coord = coord_china
     df_train_coord = df_comb_crop[((df_comb_crop['lat'] < coord['min_lat'])
-        | (df_comb_crop['lat'] > coord['max_lat']))
-        & ((df_comb_crop['lon'] < coord['min_lon']) 
-        | (df_comb_crop['lon'] > coord['max_lon']))]
+                                   | (df_comb_crop['lat'] > coord['max_lat']))
+                                  & ((df_comb_crop['lon'] < coord['min_lon'])
+                                     | (df_comb_crop['lon'] > coord['max_lon']))]
 
     df_test_coord = df_comb_crop[(df_comb_crop['lat'] > coord['min_lat'])
-        & (df_comb_crop['lat'] < coord['max_lat'])
-        & (df_comb_crop['lon'] > coord['min_lon']) 
-        & (df_comb_crop['lon'] < coord['max_lon'])]
+                                 & (df_comb_crop['lat'] < coord['max_lat'])
+                                 & (df_comb_crop['lon'] > coord['min_lon'])
+                                 & (df_comb_crop['lon'] < coord['max_lon'])]
 
     df_train_coord.to_csv(croppath + 'df_' + crop +
-                       "_train_holdout_china.csv")
+                          "_train_holdout_china.csv")
     df_test_coord.to_csv(croppath + 'df_' + crop +
-                        "_test_holdout_china.csv")
-
+                         "_test_holdout_china.csv")

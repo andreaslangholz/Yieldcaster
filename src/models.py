@@ -38,38 +38,25 @@ class twoLayerNN(nn.Module):
 
     def forward(self, x):
         x = functional.relu(self.hidden_l1(x))
-        x = functional.relu(self.hidden_l2(x))
-        x = self.output_layer(x)
+        x = functional.leaky_relu(self.hidden_l2(x))
+        x = functional.leaky_relu(self.output_layer(x))
         return x
 
 
 class threeLayerNN(nn.Module):
-    def __init__(self, num_feat_inp, L1=50, L2=10, L3=10):
+    def __init__(self, num_feat_inp, L1=50, L2=50, L3=50):
         super().__init__()
         self.hidden_l1 = nn.Linear(num_feat_inp, L1)
         self.hidden_l2 = nn.Linear(L1, L2)
-        self.output_layer = nn.Linear(L2, 1)
+        self.hidden_l3 = nn.Linear(L2, L3)
+        self.output_layer = nn.Linear(L3, 1)
 
     def forward(self, x):
-        x = functional.relu(self.hidden_l1(x))
-        x = functional.relu(self.hidden_l2(x))
-        x = self.output_layer(x)
+        x = functional.leaky_relu(self.hidden_l1(x))
+        x = functional.tanh(self.hidden_l2(x))
+        x = functional.tanh(self.hidden_l3(x))
+        x = functional.leaky_relu(self.output_layer(x))
         return x
-
-
-class LSTM(nn.Module):
-    def __init__(self, num_feat_inp, L1=50, L2=10):
-        super().__init__()
-        self.hidden_l1 = nn.Linear(num_feat_inp, L1)
-        self.hidden_l2 = nn.Linear(L1, L2)
-        self.output_layer = nn.Linear(L2, 1)
-
-    def forward(self, x):
-        x = functional.relu(self.hidden_l1(x))
-        x = functional.relu(self.hidden_l2(x))
-        x = self.output_layer(x)
-        return x
-
 
 ## Trainer functions ##
 
@@ -126,7 +113,7 @@ def criterion_rmse(input, target):
     return torch.Tensor(rmse)
 
 
-def train_k_epochs(train_load, test_load, model, optimizer, criterion, out=False, epochs=50, device='cpu', delta_break=10e-4):
+def train_k_epochs(train_load, test_load, model, optimizer, criterion, out=False, epochs=50, device='cpu', delta_break=10e-5):
     model_loss = pd.DataFrame({
         "Epoch:": [],
         "loss": [],
@@ -164,6 +151,8 @@ def train_k_epochs(train_load, test_load, model, optimizer, criterion, out=False
             model_loss = pd.concat([model_loss, ml])
 
         if abs(epoch_loss - last_loss) < delta_break:
+            print('Model converged to less than {} diff. loss'.format(delta_break))
+            print('This epoch: {}, last epoch: {}'.format(epoch_loss, last_loss))
             break
         last_loss = epoch_loss
 
@@ -256,3 +245,4 @@ class makeDataset(Dataset):
             inpt = torch.Tensor(self.inp[idx])
             return {'inp': inpt
                     }
+
