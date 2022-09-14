@@ -78,6 +78,13 @@ target/
 # exclude data from source control by default
 /data/
 /other/
+/notebooks/
+/models/
+/yieldenv/
+/darts_logs/
+/lightning_logs/
+/newvenv/
+/tensor_logs/
 
 # Mac OS-specific storage files
 .DS_Store
